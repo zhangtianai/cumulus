@@ -41,7 +41,7 @@ static INTEGRATION_TEST_ALLOWED_TIME: Option<&str> = option_env!("INTEGRATION_TE
 
 #[tokio::test]
 #[ignore]
-async fn integration_test() {
+async fn validator() {
 	let task_executor: TaskExecutor = (|fut, _| {
 		spawn(fut).map(|_| ())
 	}).into();
@@ -92,24 +92,87 @@ async fn integration_test() {
 
 		// run cumulus charlie
 		let key = Arc::new(sp_core::Pair::from_seed(&[10; 32]));
-		let mut polkadot_config = polkadot_test_service::node_config(
+		let polkadot_config = polkadot_test_service::node_config(
 			|| {},
 			task_executor.clone(),
 			Charlie,
 			vec![alice.addr.clone(), bob.addr.clone()],
 		);
-		use std::net::{Ipv4Addr, SocketAddr};
-		polkadot_config.rpc_http = Some(SocketAddr::new(Ipv4Addr::LOCALHOST.into(), 27016));
-		polkadot_config.rpc_methods = sc_service::config::RpcMethods::Unsafe;
 		let parachain_config =
 			parachain_config(task_executor.clone(), Charlie, vec![], para_id).unwrap();
-		let (_service, charlie_client) =
+		let (mut charlie_service, charlie_client) =
 			crate::service::run_collator(parachain_config, key, polkadot_config, para_id, true).unwrap();
-		sleep(Duration::from_secs(3)).await;
 		charlie_client.wait_for_blocks(4).await;
 
+		charlie_service.terminate();
 		alice.task_manager.terminate();
 		bob.task_manager.terminate();
+		charlie_service.clean_shutdown().await;
+		alice.task_manager.clean_shutdown().await;
+		bob.task_manager.clean_shutdown().await;
+	}
+	.fuse();
+
+	pin_mut!(t1, t2);
+
+	select! {
+		_ = t1 => {
+			panic!("the test took too long, maybe no parachain blocks have been produced");
+		},
+		_ = t2 => {},
+	}
+}
+
+#[tokio::test]
+#[ignore]
+async fn not_validator() {
+	let task_executor: TaskExecutor = (|fut, _| {
+		spawn(fut).map(|_| ())
+	}).into();
+
+	let t1 = sleep(Duration::from_secs(
+		INTEGRATION_TEST_ALLOWED_TIME
+			.and_then(|x| x.parse().ok())
+			.unwrap_or(600),
+	))
+	.fuse();
+
+	let t2 = async {
+		let para_id = ParaId::from(100);
+
+		// run cumulus charlie
+		let key = Arc::new(sp_core::Pair::from_seed(&[10; 32]));
+		let polkadot_config = polkadot_test_service::node_config(
+			|| {},
+			task_executor.clone(),
+			Charlie,
+			vec![],
+		);
+		let parachain_config =
+			parachain_config(task_executor.clone(), Charlie, vec![], para_id).unwrap();
+		let (mut charlie_service, charlie_client) =
+			crate::service::run_collator(parachain_config, key, polkadot_config, para_id, true).unwrap();
+
+		// run cumulus dave
+		let key = Arc::new(sp_core::Pair::from_seed(&[10; 32]));
+		let polkadot_config = polkadot_test_service::node_config(
+			|| {},
+			task_executor.clone(),
+			Dave,
+			vec![],
+		);
+		let parachain_config =
+			parachain_config(task_executor.clone(), Dave, vec![charlie.addr.clone()], para_id).unwrap();
+		let (mut dave_service, dave_client) =
+			crate::service::run_collator(parachain_config, key, polkadot_config, para_id, true).unwrap();
+
+		charlie_client.wait_for_blocks(4).await;
+		dave_client.wait_for_blocks(4).await;
+
+		charlie_service.terminate();
+		dave_service.terminate();
+		charlie_service.clean_shutdown().await;
+		dave_service.clean_shutdown().await;
 	}
 	.fuse();
 
