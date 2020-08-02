@@ -100,7 +100,7 @@ async fn validator() {
 		);
 		let parachain_config =
 			parachain_config(task_executor.clone(), Charlie, vec![], para_id).unwrap();
-		let (mut charlie_service, charlie_client) =
+		let (mut charlie_service, charlie_client, _charlie_network) =
 			crate::service::run_collator(parachain_config, key, polkadot_config, para_id, true).unwrap();
 		charlie_client.wait_for_blocks(4).await;
 
@@ -148,10 +148,13 @@ async fn not_validator() {
 			Charlie,
 			vec![],
 		);
-		let parachain_config =
+		let para_config =
 			parachain_config(task_executor.clone(), Charlie, vec![], para_id).unwrap();
-		let (mut charlie_service, charlie_client) =
-			crate::service::run_collator(parachain_config, key, polkadot_config, para_id, true).unwrap();
+		let multiaddr = para_config.network.listen_addresses[0].clone();
+		let (mut charlie_service, charlie_client, charlie_network) =
+			crate::service::run_collator(para_config, key, polkadot_config, para_id, true).unwrap();
+		let peer_id = charlie_network.local_peer_id().clone();
+		let charlie_addr = MultiaddrWithPeerId { multiaddr, peer_id };
 
 		// run cumulus dave
 		let key = Arc::new(sp_core::Pair::from_seed(&[10; 32]));
@@ -161,10 +164,10 @@ async fn not_validator() {
 			Dave,
 			vec![],
 		);
-		let parachain_config =
-			parachain_config(task_executor.clone(), Dave, vec![charlie.addr.clone()], para_id).unwrap();
-		let (mut dave_service, dave_client) =
-			crate::service::run_collator(parachain_config, key, polkadot_config, para_id, true).unwrap();
+		let para_config =
+			parachain_config(task_executor.clone(), Dave, vec![charlie_addr], para_id).unwrap();
+		let (mut dave_service, dave_client, _dave_network) =
+			crate::service::run_collator(para_config, key, polkadot_config, para_id, true).unwrap();
 
 		charlie_client.wait_for_blocks(4).await;
 		dave_client.wait_for_blocks(4).await;
