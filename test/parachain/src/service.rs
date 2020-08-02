@@ -23,8 +23,9 @@ use sc_executor::native_executor_instance;
 pub use sc_executor::NativeExecutor;
 use sc_informant::OutputFormat;
 use sc_service::{Configuration, PartialComponents, TaskManager, TFullBackend, TFullClient, Role};
+use sc_network::NetworkService;
 use std::sync::Arc;
-use sp_core::crypto::Pair;
+use sp_core::{crypto::Pair, H256};
 use sp_trie::PrefixedMemoryDB;
 use sp_runtime::traits::BlakeTwo256;
 
@@ -107,6 +108,7 @@ pub fn run_collator(
 ) -> sc_service::error::Result<(
 	TaskManager,
 	Arc<TFullClient<parachain_runtime::opaque::Block, parachain_runtime::RuntimeApi, crate::service::Executor>>,
+	Arc<NetworkService<parachain_runtime::opaque::Block, H256>>
 )> {
 	if matches!(parachain_config.role, Role::Light) {
 		return Err("Light client not supported!".into());
@@ -179,6 +181,7 @@ pub fn run_collator(
 			prometheus_registry.as_ref(),
 		);
 
+		let network = network.clone();
 		let block_import = client.clone();
 		let announce_block = Arc::new(move |hash, data| network.announce_block(hash, data));
 		let builder = CollatorBuilder::new(
@@ -227,5 +230,5 @@ pub fn run_collator(
 			.spawn("polkadot", polkadot_future);
 	}
 
-	Ok((task_manager, client))
+	Ok((task_manager, client, network))
 }

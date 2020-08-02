@@ -221,7 +221,7 @@ pub fn run() -> Result<()> {
 					id,
 					cli.run.base.validator,
 				)
-				.map(|(x, _)| x)
+				.map(|(x, _, _)| x)
 			})
 		}
 	}
