@@ -1,93 +1,77 @@
-# Cumulus
+# Cumulus :cloud:
 
-A set of tools for writing [Polkadot](https://github.com/paritytech/polkadot) parachains that are based on [Substrate](https://github.com/paritytech/substrate).
+A set of tools for writing [Substrate](https://substrate.dev/)-based
+[Polkadot](https://wiki.polkadot.network/en/)
+[parachains](https://wiki.polkadot.network/docs/en/learn-parachains). Refer to the included
+[overview](docs/overview.md) for more details.
 
-It's easy to write blockchains using Substrate, and the overhead of writing parachains' distribution, p2p, database, and synchronization layers is generally high and should be reusable. This project aims to make it easy to write parachains for Polkadot by leveraging the power of Substrate.
+It's easy to write blockchains using Substrate, and the overhead of writing parachains'
+distribution, p2p, database, and synchronization layers should be just as low. This project aims to
+make it easy to write parachains for Polkadot by leveraging the power of Substrate.
 
-Cumulus clouds are shaped sort of like dots and are up in the air, like this project (as it is an initial prototype -- expect a rename when it gets cooler.)
+Cumulus clouds are shaped sort of like dots; together they form a system that is intricate,
+beautiful and functional.
 
-## cumulus-consensus
+## Consensus
 
-For now, this is only project contained in this repo. *cumulus-consensus* is a consensus engine for Substrate which follows a Polkadot relay chain. This will run a Polkadot node internally, and dictate to the client and synchronization algorithms which chain to follow, finalize, and treat as best.
+[`cumulus-consensus`](consensus) is a
+[consensus engine](https://substrate.dev/docs/en/knowledgebase/advanced/consensus) for Substrate
+that follows a Polkadot
+[relay chain](https://wiki.polkadot.network/docs/en/learn-architecture#relay-chain). This will run a
+Polkadot node internally, and dictate to the client and synchronization algorithms which chain to
+follow,
+[finalize](https://wiki.polkadot.network/docs/en/learn-consensus#probabilistic-vs-provable-finality),
+and treat as best.
 
-## cumulus-runtime
+## Runtime
 
-A planned wrapper around substrate runtimes to turn them into parachain validation code and to provide proof-generation routines.
+The [`cumulus-runtime`](runtime) is wrapper around Substrate runtimes that provides parachain
+validation capabilities and proof-generation routines.
 
-## cumulus-collator
+## Collator
 
-A planned Polkadot collator for the parachain.
+A Polkadot [collator](https://wiki.polkadot.network/docs/en/maintain-collator) for the parachain is
+implemented by [`cumulus-collator`](collator).
 
-## Running a collator
+# Rococo :crown:
 
-1. Checkout polkadot at `96f5dc510ef770fd5c5ab57a90565bb5819bbbea`.
+[Rococo](https://polkadot.js.org/apps/?rpc=wss://rococo-rpc.polkadot.io) is the testnet for
+parachains. It currently runs the parachains
+[Tick](https://polkadot.js.org/apps/?rpc=wss://tick-rpc.polkadot.io),
+[Trick](https://polkadot.js.org/apps/?rpc=wss://trick-rpc.polkadot.io) and
+[Track](https://polkadot.js.org/apps/?rpc=wss://track-rpc.polkadot.io).
 
-2. Run `Alice` and `Bob`:
+Rococo is an elaborate style of design and the name describes the painstaking effort that has gone
+into this project. Tick, Trick and Track are the German names for the cartoon ducks known to English
+speakers as Huey, Dewey and Louie.
 
-	`cargo run --release -- --chain=${CUMULUS_REPO}/test/parachain/res/polkadot_chainspec.json --base-path=cumulus_relay_chain_node_0 --alice`
+## Build & Launch Rococo Collators
 
-	`cargo run --release -- --chain=${CUMULUS_REPO}/test/parachain/res/polkadot_chainspec.json --base-path=cumulus_relay_chain_node_1 --bob --port 50666`
+Collators are similar to validators in the relay chain. These nodes build the blocks that will
+eventually be included by the relay chain for a parachain.
 
-    Where `CUMULUS_REPO` is the path to the checkout of Cumulus.
+To run a Rococo collator you will need to compile the following binary:
 
-3. Switch back to this repository and generate the parachain genesis state:
-
-	`cargo run --release -p cumulus-test-parachain-collator -- export-genesis-state genesis-state`
-
-4. Run the collator:
-
-	`cargo run --release -p cumulus-test-parachain-collator -- --base-path cumulus_collator_path -- --bootnodes=/ip4/127.0.0.1/tcp/30333/p2p/PEER_ID_${NAME} --bootnodes=/ip4/127.0.0.1/tcp/50666/p2p/PEER_ID_${NAME}`
-
-	`PEER_ID_${NAME}` needs to be replaced with the peer id of the polkadot validator that uses `${NAME}`
-	as authority. The `--` after `--base-path cumulus_collator_path` is important, it tells the CLI to pass these arguments
-	to the relay chain node that is running inside of the collator.
-
-5. Open `https://polkadot.js.org/apps/#/sudo` and register the parachain by calling `Registrar > RegisterPara`
-
-	`id`: `100`
-
-	`ParaInfo`: `Always`
-
-	`code`: `CUMULUS_REPO/target/release/wbuild/cumulus-test-parachain-runtime/cumulus_test_parachain_runtime.compact.wasm`
-
-	`initial_head_data`: Use the file you generated in step 3. (name: genesis-state)
-
-	Now your parachain should be registered and the collator should start building blocks and sending
-	them to the relay chain.
-
-6. Now the `collator` should build blocks and the relay-chain should include them. You can check that the `parachain-header` for parachain `100` is changing.
-
-### Running the collator automatically
-
-To simplify the above process, you can run steps 1-5 above automatically:
-
-```sh
-scripts/build_polkadot.sh
-scripts/run_collator.sh
+```
+cargo build --release -p rococo-collator
 ```
 
-This will churn for several minutes, but should end with docker reporting that several containers have successfully been brought up.
+Once the executable is built, launch collators for each parachain (repeat once each for chain
+`tick`, `trick`, `track`):
 
-To run step 6, first set up an alias which gives you quick access to the polkadot-js CLI:
-
-```sh
-docker build -f docker/parachain-registrar.dockerfile --target pjs -t parachain-registrar:pjs .
-alias pjs='docker run --rm --net cumulus_testing_net parachain-registrar:pjs --ws ws://172.28.1.1:9944'
+```
+./target/release/rococo-collator --chain $CHAIN --validator
 ```
 
-Those steps should complete very quickly. At that point, you can do things like:
+## Parachains
 
-```sh
-$ pjs query.parachains.heads 100
-{
-  "heads": "0xe1efbf8cc2e1304da927986f4cd6964ce0888ce3995948bf71fe427b1a9d39b02101d2dac9c5342d7e8c4f4de2f5277ef860b3a518c1cd823b9a8cee175dce11bf7f57c5016e8a60a6cec16244b2cbf81a67a1dc7a825c288fc694997bc70e2d456400"
-}
-```
+The parachains of Rococo all use the same runtime code. The only difference between them is the
+parachain ID used for registration with the relay chain:
 
-The collator includes its own health check, which you can inspect with
+-   Tick: 100
+-   Trick: 110
+-   Track: 120
 
-```sh
-docker inspect --format='{{json .State.Health}}' cumulus_collator_1
-```
-
-The check runs every 5 minutes, and takes about a minute to complete each time. Most of that time is spent sleeping; it remains a very lightweight process.
+The network uses horizontal message passing (HRMP) to enable communication between parachains and
+the relay chain and, in turn, between parachains. This means that every message is sent to the relay
+chain, and from the relay chain to its destination parachain.
