@@ -42,9 +42,7 @@ static INTEGRATION_TEST_ALLOWED_TIME: Option<&str> = option_env!("INTEGRATION_TE
 #[tokio::test]
 #[ignore]
 async fn validator() {
-	let task_executor: TaskExecutor = (|fut, _| {
-		spawn(fut).map(|_| ())
-	}).into();
+	let task_executor: TaskExecutor = (|fut, _| spawn(fut).map(|_| ())).into();
 
 	// start alice
 	let mut alice =
@@ -82,7 +80,10 @@ async fn validator() {
 				Info {
 					scheduling: Scheduling::Always,
 				},
-				parachain_runtime::WASM_BINARY.to_vec().into(),
+				parachain_runtime::WASM_BINARY
+					.expect("You need to build the WASM binary to run this test!")
+					.to_vec()
+					.into(),
 				genesis_state.into(),
 			)),
 		)));
@@ -101,7 +102,8 @@ async fn validator() {
 		let parachain_config =
 			parachain_config(task_executor.clone(), Charlie, vec![], para_id).unwrap();
 		let (mut charlie_service, charlie_client, _charlie_network) =
-			crate::service::run_collator(parachain_config, key, polkadot_config, para_id, true).unwrap();
+			crate::service::run_collator(parachain_config, key, polkadot_config, para_id, true)
+				.unwrap();
 		charlie_client.wait_for_blocks(4).await;
 
 		charlie_service.terminate();
