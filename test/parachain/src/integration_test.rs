@@ -41,7 +41,7 @@ static INTEGRATION_TEST_ALLOWED_TIME: Option<&str> = option_env!("INTEGRATION_TE
 
 #[tokio::test]
 #[ignore]
-async fn validator() {
+async fn integration_test() {
 	let task_executor: TaskExecutor = (|fut, _| spawn(fut).map(|_| ())).into();
 
 	// start alice
@@ -106,58 +106,6 @@ async fn validator() {
 				.unwrap();
 		charlie_client.wait_for_blocks(4).await;
 
-		charlie_service.terminate();
-		alice.task_manager.terminate();
-		bob.task_manager.terminate();
-		charlie_service.clean_shutdown().await;
-		alice.task_manager.clean_shutdown().await;
-		bob.task_manager.clean_shutdown().await;
-	}
-	.fuse();
-
-	pin_mut!(t1, t2);
-
-	select! {
-		_ = t1 => {
-			panic!("the test took too long, maybe no parachain blocks have been produced");
-		},
-		_ = t2 => {},
-	}
-}
-
-#[tokio::test]
-#[ignore]
-async fn not_validator() {
-	let task_executor: TaskExecutor = (|fut, _| {
-		spawn(fut).map(|_| ())
-	}).into();
-
-	let t1 = sleep(Duration::from_secs(
-		INTEGRATION_TEST_ALLOWED_TIME
-			.and_then(|x| x.parse().ok())
-			.unwrap_or(600),
-	))
-	.fuse();
-
-	let t2 = async {
-		let para_id = ParaId::from(100);
-
-		// run cumulus charlie
-		let key = Arc::new(sp_core::Pair::from_seed(&[10; 32]));
-		let polkadot_config = polkadot_test_service::node_config(
-			|| {},
-			task_executor.clone(),
-			Charlie,
-			vec![],
-		);
-		let para_config =
-			parachain_config(task_executor.clone(), Charlie, vec![], para_id).unwrap();
-		let multiaddr = para_config.network.listen_addresses[0].clone();
-		let (mut charlie_service, charlie_client, charlie_network) =
-			crate::service::run_collator(para_config, key, polkadot_config, para_id, true).unwrap();
-		let peer_id = charlie_network.local_peer_id().clone();
-		let charlie_addr = MultiaddrWithPeerId { multiaddr, peer_id };
-
 		// run cumulus dave
 		let key = Arc::new(sp_core::Pair::from_seed(&[10; 32]));
 		let polkadot_config = polkadot_test_service::node_config(
@@ -169,13 +117,15 @@ async fn not_validator() {
 		let para_config =
 			parachain_config(task_executor.clone(), Dave, vec![charlie_addr], para_id).unwrap();
 		let (mut dave_service, dave_client, _dave_network) =
-			crate::service::run_collator(para_config, key, polkadot_config, para_id, true).unwrap();
-
-		charlie_client.wait_for_blocks(4).await;
+			crate::service::run_collator(para_config, key, polkadot_config, para_id, false).unwrap();
 		dave_client.wait_for_blocks(4).await;
 
+		alice.task_manager.terminate();
+		bob.task_manager.terminate();
 		charlie_service.terminate();
-		dave_service.terminate();
+		dave.terminate();
+		alice.task_manager.clean_shutdown().await;
+		bob.task_manager.clean_shutdown().await;
 		charlie_service.clean_shutdown().await;
 		dave_service.clean_shutdown().await;
 	}
