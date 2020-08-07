@@ -118,6 +118,7 @@ pub fn run_collator(
 
 	let mut parachain_config = prepare_collator_config(parachain_config);
 
+	/*
 	parachain_config.informant_output_format = OutputFormat {
 		enable_color: true,
 		prefix: format!("[{}] ", Color::Yellow.bold().paint("Parachain")),
@@ -126,6 +127,7 @@ pub fn run_collator(
 		enable_color: true,
 		prefix: format!("[{}] ", Color::Blue.bold().paint("Relaychain")),
 	};
+	*/
 
 	let params = new_partial(&mut parachain_config)?;
 	params.inherent_data_providers
