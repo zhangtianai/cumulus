@@ -99,12 +99,15 @@ async fn integration_test() {
 			Charlie,
 			vec![alice.addr.clone(), bob.addr.clone()],
 		);
-		let parachain_config =
+		let charlie_config =
 			parachain_config(task_executor.clone(), Charlie, vec![], para_id).unwrap();
-		let (mut charlie_service, charlie_client, _charlie_network) =
-			crate::service::run_collator(parachain_config, key, polkadot_config, para_id, true)
+		let multiaddr = charlie_config.network.listen_addresses[0].clone();
+		let (mut charlie, charlie_client, charlie_network) =
+			crate::service::run_collator(charlie_config, key, polkadot_config, para_id, true)
 				.unwrap();
 		charlie_client.wait_for_blocks(4).await;
+		let peer_id = charlie_network.local_peer_id().clone();
+		let charlie_addr = MultiaddrWithPeerId { multiaddr, peer_id };
 
 		// run cumulus dave
 		let key = Arc::new(sp_core::Pair::from_seed(&[10; 32]));
@@ -112,22 +115,22 @@ async fn integration_test() {
 			|| {},
 			task_executor.clone(),
 			Dave,
-			vec![],
+			vec![alice.addr.clone(), bob.addr.clone()],
 		);
-		let para_config =
+		let dave_config =
 			parachain_config(task_executor.clone(), Dave, vec![charlie_addr], para_id).unwrap();
-		let (mut dave_service, dave_client, _dave_network) =
-			crate::service::run_collator(para_config, key, polkadot_config, para_id, false).unwrap();
+		let (mut dave, dave_client, _dave_network) =
+			crate::service::run_collator(dave_config, key, polkadot_config, para_id, false).unwrap();
 		dave_client.wait_for_blocks(4).await;
 
 		alice.task_manager.terminate();
 		bob.task_manager.terminate();
-		charlie_service.terminate();
+		charlie.terminate();
 		dave.terminate();
 		alice.task_manager.clean_shutdown().await;
 		bob.task_manager.clean_shutdown().await;
-		charlie_service.clean_shutdown().await;
-		dave_service.clean_shutdown().await;
+		charlie.clean_shutdown().await;
+		dave.clean_shutdown().await;
 	}
 	.fuse();
 
