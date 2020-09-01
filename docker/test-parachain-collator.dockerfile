@@ -41,7 +41,7 @@ COPY --from=builder \
     /paritytech/cumulus/target/release/rococo-collator /usr/bin
 COPY ./docker/scripts/inject_bootnodes.sh /usr/bin
 CMD ["/usr/bin/inject_bootnodes.sh"]
-COPY ./docker/scripts/healthcheck.sh /usr/bin/
+COPY /root/cumulus/docker/scripts/healthcheck.sh /usr/bin/
 HEALTHCHECK --interval=300s --timeout=75s --start-period=30s --retries=3 \
     CMD ["/usr/bin/healthcheck.sh"]
 
